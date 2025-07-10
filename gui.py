@@ -28,13 +28,13 @@ class ExportTab(QWidget):
 
         hbox_eng = QHBoxLayout()
         self.eng_folder_edit = DragDropField(mode="folder")
-        hbox_eng.addWidget(QLabel("Папка с английскими файлами:"))
+        hbox_eng.addWidget(QLabel("Папка с английскими файлами (txt/srt):"))
         hbox_eng.addWidget(self.eng_folder_edit)
         layout.addLayout(hbox_eng)
 
         hbox_rus = QHBoxLayout()
         self.rus_folder_edit = DragDropField(mode="folder")
-        hbox_rus.addWidget(QLabel("Папка с русскими файлами:"))
+        hbox_rus.addWidget(QLabel("Папка с русскими файлами (txt/srt):"))
         hbox_rus.addWidget(self.rus_folder_edit)
         layout.addLayout(hbox_rus)
 
@@ -68,6 +68,7 @@ class ExportTab(QWidget):
                 eng_folder,
                 rus_folder,
                 output_path,
+                file_extension=None,
                 rus_force_encoding=rus_enc,
             )
             QMessageBox.information(self, "Успех", "Word документ успешно создан!")
@@ -127,7 +128,7 @@ class ImportTab(QWidget):
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Конвертер субтитров: TXT <-> Word")
+        self.setWindowTitle("Конвертер субтитров: TXT/SRT <-> Word")
         self.resize(600, 300)
         tabs = QTabWidget()
         tabs.addTab(ExportTab(), "Создать Word документ")
