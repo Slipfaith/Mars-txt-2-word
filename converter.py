@@ -60,14 +60,39 @@ def export_to_word(
     eng_folder: str,
     rus_folder: str,
     output_path: str,
+    file_extension: Optional[str] = None,
     rus_force_encoding: Optional[str] = None,
 ) -> None:
-    """Create Word document from pairs of txt files."""
-    doc = Document()
-    files = sorted([f for f in os.listdir(eng_folder) if f.lower().endswith('.txt')])
-    if not files:
-        raise FileNotFoundError("No .txt files in english folder")
+    """Create Word document from pairs of subtitle files.
 
+    ``file_extension`` may be ``"txt"`` or ``"srt"``. If ``None`` the
+    extension will be auto-detected by looking for files in the english folder.
+    """
+    doc = Document()
+
+    def gather(ext: str) -> List[str]:
+        return sorted(
+            [f for f in os.listdir(eng_folder) if f.lower().endswith(f".{ext}")]
+        )
+
+    if file_extension is None:
+        for ext in ("txt", "srt"):
+            files = gather(ext)
+            if files:
+                file_extension = ext
+                break
+        else:
+            raise FileNotFoundError("No .txt or .srt files in english folder")
+    else:
+        file_extension = file_extension.lower().lstrip(".")
+        files = gather(file_extension)
+        if not files:
+            raise FileNotFoundError(
+                f"No .{file_extension} files in english folder"
+            )
+
+    doc.add_paragraph(f"Тип файлов: {file_extension}")
+    
     for filename in files:
         eng_file_path = os.path.join(eng_folder, filename)
         rus_file_path = os.path.join(rus_folder, filename)
@@ -90,16 +115,21 @@ def export_to_word(
     logger.info("Word document saved: %s", output_path)
 
 
-def import_from_word(word_path: str, eng_output_folder: str, rus_output_folder: str) -> None:
-    """Split Word document back into english/russian txt files."""
+def import_from_word(
+    word_path: str, eng_output_folder: str, rus_output_folder: str
+) -> None:
+    """Split Word document back into english/russian txt or srt files."""
     doc = Document(word_path)
+    file_format = "txt"
     current_filename: Optional[str] = None
     file_data = {}
 
     for block in iter_block_items(doc):
         if isinstance(block, Paragraph):
             text = block.text.strip()
-            if text.startswith("Файл:"):
+            if text.startswith("Тип файлов:"):
+                file_format = text.split(":", 1)[1].strip().lower()
+            elif text.startswith("Файл:"):
                 current_filename = text.replace("Файл:", "").strip()
                 file_data[current_filename] = ([], [])
                 logger.debug("Processing section for %s", current_filename)
@@ -112,13 +142,18 @@ def import_from_word(word_path: str, eng_output_folder: str, rus_output_folder: 
 
     os.makedirs(eng_output_folder, exist_ok=True)
     os.makedirs(rus_output_folder, exist_ok=True)
+    ext = "srt" if file_format.lower() == "srt" else "txt"
     for filename, (eng_lines, rus_lines) in file_data.items():
-        filename_txt = filename if filename.lower().endswith('.txt') else f"{filename}.txt"
-        eng_file_path = os.path.join(eng_output_folder, filename_txt)
-        rus_file_path = os.path.join(rus_output_folder, filename_txt)
-        with open(eng_file_path, 'w', encoding='utf-8') as f:
+        filename_with_ext = (
+            filename
+            if filename.lower().endswith(f".{ext}")
+            else f"{filename}.{ext}"
+        )
+        eng_file_path = os.path.join(eng_output_folder, filename_with_ext)
+        rus_file_path = os.path.join(rus_output_folder, filename_with_ext)
+        with open(eng_file_path, "w", encoding="utf-8") as f:
             f.write("\n".join(eng_lines))
-        with open(rus_file_path, 'w', encoding='cp1251') as f:
+        with open(rus_file_path, "w", encoding="cp1251") as f:
             f.write("\n".join(rus_lines))
         logger.debug("Saved %s and %s", eng_file_path, rus_file_path)
     logger.info("Finished importing from %s", word_path)
