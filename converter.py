@@ -56,6 +56,67 @@ def iter_block_items(parent) -> Iterable:
             yield Table(child, parent)
 
 
+def export_paths_to_word(
+    eng_paths: List[str],
+    rus_paths: List[str],
+    output_path: str,
+    rus_force_encoding: Optional[str] = None,
+) -> None:
+    """Create Word document from explicit file lists."""
+
+    if not eng_paths or not rus_paths:
+        raise ValueError("No files provided")
+
+    ext_set = {
+        os.path.splitext(p)[1].lower().lstrip(".") for p in eng_paths
+    }
+    if len(ext_set) != 1:
+        raise ValueError("Все английские файлы должны иметь одинаковое расширение")
+    file_extension = next(iter(ext_set))
+
+    rus_map = {os.path.basename(p): p for p in rus_paths}
+
+    doc = Document()
+    table = doc.add_table(rows=0, cols=2)
+    table.style = "Table Grid"
+    row = table.add_row()
+    row.cells[0].text = f"Тип файлов: {file_extension}"
+    row.cells[1].text = ""
+
+    for eng_path in eng_paths:
+        filename = os.path.basename(eng_path)
+        rus_path = rus_map.get(filename)
+        if not rus_path:
+            logger.warning("Missing russian file for %s", filename)
+            continue
+
+        eng_lines = read_lines_auto(eng_path, default_encoding="utf-8")
+        rus_lines = read_lines_auto(
+            rus_path,
+            default_encoding="cp1251",
+            force_encoding=rus_force_encoding,
+        )
+
+        marker_row = table.add_row()
+        file_cell = marker_row.cells[0]
+        file_cell.text = ""
+        run = file_cell.paragraphs[0].add_run(f"Файл: {filename}")
+        run.bold = True
+        from docx.oxml import parse_xml
+        from docx.oxml.ns import nsdecls
+        shading = parse_xml(r'<w:shd {} w:fill="CCFFCC"/>'.format(nsdecls("w")))
+        file_cell._tc.get_or_add_tcPr().append(shading)
+        marker_row.cells[1].text = ""
+
+        num_rows = max(len(eng_lines), len(rus_lines))
+        for i in range(num_rows):
+            data_row = table.add_row()
+            data_row.cells[0].text = eng_lines[i] if i < len(eng_lines) else ""
+            data_row.cells[1].text = rus_lines[i] if i < len(rus_lines) else ""
+    doc.save(output_path)
+    logger.info("Word document saved: %s", output_path)
+
+
 def export_to_word(
     eng_folder: str,
     rus_folder: str,
