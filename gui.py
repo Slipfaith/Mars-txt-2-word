@@ -13,8 +13,9 @@ from PySide6.QtWidgets import (
     QLineEdit,
     QMessageBox,
     QLabel,
+    QStyle,
 )
-from PySide6.QtGui import QColor, QPalette, QFont
+from PySide6.QtGui import QColor, QPalette, QFont, QIcon, QAction
 from PySide6.QtCore import Qt
 
 from dragdrop import DragDropField
@@ -80,6 +81,7 @@ class ExportTab(QWidget):
         layout.addLayout(hbox_encoding)
 
         btn_export = QPushButton("Создать Word документ")
+        btn_export.setIcon(self.style().standardIcon(QStyle.SP_DialogSaveButton))
         btn_export.clicked.connect(self.do_export)
         layout.addWidget(btn_export)
 
@@ -165,6 +167,7 @@ class ImportTab(QWidget):
         layout.addLayout(hbox_rus)
 
         btn_import = QPushButton("Разбить Word документ")
+        btn_import.setIcon(self.style().standardIcon(QStyle.SP_DialogOpenButton))
         btn_import.clicked.connect(self.do_import)
         layout.addWidget(btn_import)
 
@@ -194,10 +197,32 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.setWindowTitle("Конвертер субтитров: TXT/SRT <-> Word")
         self.resize(600, 300)
+        self.setWindowIcon(self.style().standardIcon(QStyle.SP_FileDialogContentsView))
+
         tabs = QTabWidget()
-        tabs.addTab(ExportTab(), "Создать Word документ")
-        tabs.addTab(ImportTab(), "Разбить Word документ")
+        tabs.addTab(ExportTab(), self.style().standardIcon(QStyle.SP_FileIcon), "Создать Word документ")
+        tabs.addTab(ImportTab(), self.style().standardIcon(QStyle.SP_DirIcon), "Разбить Word документ")
         self.setCentralWidget(tabs)
+
+        self._create_menus()
+
+    def _create_menus(self) -> None:
+        file_menu = self.menuBar().addMenu("Файл")
+        exit_action = QAction("Выход", self)
+        exit_action.triggered.connect(self.close)
+        file_menu.addAction(exit_action)
+
+        help_menu = self.menuBar().addMenu("Справка")
+        about_action = QAction("О программе", self)
+        about_action.triggered.connect(self.show_about)
+        help_menu.addAction(about_action)
+
+    def show_about(self) -> None:
+        QMessageBox.information(
+            self,
+            "О программе",
+            "Конвертер субтитров\nВерсия 1.0",
+        )
 
 
 def main():
