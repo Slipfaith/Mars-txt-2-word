@@ -1,5 +1,6 @@
 import sys
 import logging
+import os
 from PySide6.QtWidgets import (
     QApplication,
     QMainWindow,
@@ -16,7 +17,7 @@ from PySide6.QtWidgets import (
 
 from dragdrop import DragDropField
 
-from converter import export_to_word, import_from_word
+from converter import export_to_word, export_paths_to_word, import_from_word
 
 logger = logging.getLogger(__name__)
 
@@ -27,14 +28,14 @@ class ExportTab(QWidget):
         layout = QVBoxLayout()
 
         hbox_eng = QHBoxLayout()
-        self.eng_folder_edit = DragDropField(mode="folder")
-        hbox_eng.addWidget(QLabel("Папка с английскими файлами (txt/srt):"))
+        self.eng_folder_edit = DragDropField(mode="files_or_folder")
+        hbox_eng.addWidget(QLabel("Английские файлы или папка:"))
         hbox_eng.addWidget(self.eng_folder_edit)
         layout.addLayout(hbox_eng)
 
         hbox_rus = QHBoxLayout()
-        self.rus_folder_edit = DragDropField(mode="folder")
-        hbox_rus.addWidget(QLabel("Папка с русскими файлами (txt/srt):"))
+        self.rus_folder_edit = DragDropField(mode="files_or_folder")
+        hbox_rus.addWidget(QLabel("Русские файлы или папка:"))
         hbox_rus.addWidget(self.rus_folder_edit)
         layout.addLayout(hbox_rus)
 
@@ -52,10 +53,14 @@ class ExportTab(QWidget):
         self.setLayout(layout)
 
     def do_export(self):
-        eng_folder = self.eng_folder_edit.text().strip()
-        rus_folder = self.rus_folder_edit.text().strip()
-        if not eng_folder or not rus_folder:
-            QMessageBox.warning(self, "Ошибка", "Сначала выберите обе папки с файлами")
+        eng_paths = self.eng_folder_edit.paths
+        rus_paths = self.rus_folder_edit.paths
+        if not eng_paths or not rus_paths:
+            QMessageBox.warning(
+                self,
+                "Ошибка",
+                "Сначала выберите файлы или папки для обоих языков",
+            )
             return
         rus_enc = self.encoding_edit.text().strip() or None
         output_path, _ = QFileDialog.getSaveFileName(
@@ -64,13 +69,39 @@ class ExportTab(QWidget):
         if not output_path:
             return
         try:
-            export_to_word(
-                eng_folder,
-                rus_folder,
-                output_path,
-                file_extension=None,
-                rus_force_encoding=rus_enc,
-            )
+            if (
+                len(eng_paths) == 1
+                and os.path.isdir(eng_paths[0])
+                and len(rus_paths) == 1
+                and os.path.isdir(rus_paths[0])
+            ):
+                export_to_word(
+                    eng_paths[0],
+                    rus_paths[0],
+                    output_path,
+                    file_extension=None,
+                    rus_force_encoding=rus_enc,
+                )
+            else:
+                def expand(paths):
+                    out = []
+                    for p in paths:
+                        if os.path.isdir(p):
+                            for name in os.listdir(p):
+                                if name.lower().endswith((".txt", ".srt")):
+                                    out.append(os.path.join(p, name))
+                        else:
+                            out.append(p)
+                    return out
+
+                eng_files = expand(eng_paths)
+                rus_files = expand(rus_paths)
+                export_paths_to_word(
+                    sorted(eng_files),
+                    sorted(rus_files),
+                    output_path,
+                    rus_force_encoding=rus_enc,
+                )
             QMessageBox.information(self, "Успех", "Word документ успешно создан!")
         except Exception as exc:
             logger.exception("Export failed")
