@@ -14,12 +14,45 @@ from PySide6.QtWidgets import (
     QMessageBox,
     QLabel,
 )
+from PySide6.QtGui import QColor, QPalette, QFont
+from PySide6.QtCore import Qt
 
 from dragdrop import DragDropField
 
 from converter import export_to_word, export_paths_to_word, import_from_word
 
 logger = logging.getLogger(__name__)
+
+
+def setup_modern_style(app: QApplication) -> None:
+    """Apply a dark Fusion style for a modern look."""
+    app.setStyle("Fusion")
+
+    palette = QPalette()
+    palette.setColor(QPalette.Window, QColor(53, 53, 53))
+    palette.setColor(QPalette.WindowText, Qt.white)
+    palette.setColor(QPalette.Base, QColor(35, 35, 35))
+    palette.setColor(QPalette.AlternateBase, QColor(53, 53, 53))
+    palette.setColor(QPalette.ToolTipBase, Qt.white)
+    palette.setColor(QPalette.ToolTipText, Qt.white)
+    palette.setColor(QPalette.Text, Qt.white)
+    palette.setColor(QPalette.Button, QColor(53, 53, 53))
+    palette.setColor(QPalette.ButtonText, Qt.white)
+    palette.setColor(QPalette.BrightText, Qt.red)
+    palette.setColor(QPalette.Link, QColor(42, 130, 218))
+    palette.setColor(QPalette.Highlight, QColor(42, 130, 218))
+    palette.setColor(QPalette.HighlightedText, Qt.black)
+    app.setPalette(palette)
+
+    app.setFont(QFont("Segoe UI", 10))
+    app.setStyleSheet(
+        """
+        QWidget { font-size: 14px; }
+        QPushButton { padding: 6px 12px; }
+        QLineEdit { padding: 4px; }
+        QTabWidget::pane { border: 1px solid #444; }
+        """
+    )
 
 
 class ExportTab(QWidget):
@@ -173,6 +206,7 @@ def main():
         format="%(asctime)s - %(levelname)s - %(name)s - %(message)s",
     )
     app = QApplication(sys.argv)
+    setup_modern_style(app)
     window = MainWindow()
     window.show()
     sys.exit(app.exec())
