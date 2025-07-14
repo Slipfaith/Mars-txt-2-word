@@ -91,8 +91,15 @@ def export_to_word(
                 f"No .{file_extension} files in english folder"
             )
 
-    doc.add_paragraph(f"Тип файлов: {file_extension}")
-    
+    # create a single two column table and populate it with all files
+    table = doc.add_table(rows=0, cols=2)
+    table.style = 'Table Grid'
+
+    # first row stores file type so we can reconstruct later
+    row = table.add_row()
+    row.cells[0].text = f"Тип файлов: {file_extension}"
+    row.cells[1].text = ""
+
     for filename in files:
         eng_file_path = os.path.join(eng_folder, filename)
         rus_file_path = os.path.join(rus_folder, filename)
@@ -103,14 +110,17 @@ def export_to_word(
         rus_lines = read_lines_auto(
             rus_file_path, default_encoding='cp1251', force_encoding=rus_force_encoding
         )
-        doc.add_paragraph(f'Файл: {filename}')
+
+        # row marking the beginning of a new file
+        marker_row = table.add_row()
+        marker_row.cells[0].text = f"Файл: {filename}"
+        marker_row.cells[1].text = ""
+
         num_rows = max(len(eng_lines), len(rus_lines))
-        table = doc.add_table(rows=num_rows, cols=2)
-        table.style = 'Table Grid'
         for i in range(num_rows):
-            table.cell(i, 0).text = eng_lines[i] if i < len(eng_lines) else ''
-            table.cell(i, 1).text = rus_lines[i] if i < len(rus_lines) else ''
-        doc.add_paragraph()
+            data_row = table.add_row()
+            data_row.cells[0].text = eng_lines[i] if i < len(eng_lines) else ''
+            data_row.cells[1].text = rus_lines[i] if i < len(rus_lines) else ''
     doc.save(output_path)
     logger.info("Word document saved: %s", output_path)
 
@@ -120,25 +130,34 @@ def import_from_word(
 ) -> None:
     """Split Word document back into english/russian txt or srt files."""
     doc = Document(word_path)
-    file_format = "txt"
-    current_filename: Optional[str] = None
-    file_data = {}
 
-    for block in iter_block_items(doc):
-        if isinstance(block, Paragraph):
-            text = block.text.strip()
-            if text.startswith("Тип файлов:"):
-                file_format = text.split(":", 1)[1].strip().lower()
-            elif text.startswith("Файл:"):
-                current_filename = text.replace("Файл:", "").strip()
-                file_data[current_filename] = ([], [])
-                logger.debug("Processing section for %s", current_filename)
-        elif isinstance(block, Table) and current_filename:
+    # assume the document contains a single two column table
+    if not doc.tables:
+        raise ValueError("Word document does not contain a table")
+
+    table = doc.tables[0]
+    file_format = "txt"
+    file_data = {}
+    current_filename: Optional[str] = None
+
+    for idx, row in enumerate(table.rows):
+        first = row.cells[0].text.strip()
+        second = row.cells[1].text.strip()
+
+        if idx == 0 and first.startswith("Тип файлов:"):
+            file_format = first.split(":", 1)[1].strip().lower()
+            continue
+
+        if first.startswith("Файл:"):
+            current_filename = first.replace("Файл:", "").strip()
+            file_data[current_filename] = ([], [])
+            logger.debug("Processing section for %s", current_filename)
+            continue
+
+        if current_filename:
             eng_lines, rus_lines = file_data[current_filename]
-            for row in block.rows:
-                eng_lines.append(row.cells[0].text.strip())
-                rus_lines.append(row.cells[1].text.strip())
-            current_filename = None
+            eng_lines.append(first)
+            rus_lines.append(second)
 
     os.makedirs(eng_output_folder, exist_ok=True)
     os.makedirs(rus_output_folder, exist_ok=True)
