@@ -113,7 +113,16 @@ def export_to_word(
 
         # row marking the beginning of a new file
         marker_row = table.add_row()
-        marker_row.cells[0].text = f"Файл: {filename}"
+        file_cell = marker_row.cells[0]
+        file_cell.text = ""
+        run = file_cell.paragraphs[0].add_run(f"Файл: {filename}")
+        run.bold = True
+        from docx.oxml import parse_xml
+        from docx.oxml.ns import nsdecls
+        shading = parse_xml(
+            r'<w:shd {} w:fill="CCFFCC"/>'.format(nsdecls("w"))
+        )
+        file_cell._tc.get_or_add_tcPr().append(shading)
         marker_row.cells[1].text = ""
 
         num_rows = max(len(eng_lines), len(rus_lines))
